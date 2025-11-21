@@ -1,6 +1,19 @@
-# CleanifyAI
+# CleanifyAI - Phase 1: Screenshot Organizer
 
-#User runs cleanify.py
+A simple command-line tool that automatically organizes screenshots on your Desktop.
+
+## What This Does
+
+This is **Phase 1** of CleanifyAI - a screenshot organizer. It:
+- Scans your Desktop for screenshot files
+- Identifies screenshots (files with "screenshot" in the name and .png/.jpg extensions)
+- Moves them into a `Screenshots` folder on your Desktop
+- Handles duplicate files by renaming them (e.g., `Screenshot(1).png`)
+
+## How It Works
+
+```
+User runs cleanify.py
     ↓
 1. Parse command-line arguments
     ↓
@@ -13,83 +26,106 @@
     - Move it if matched (mover.py)
     ↓
 5. Print summary
+```
 
-
-
-
-
-
-A macOS file organization tool that automatically organizes files on your Desktop (and eventually other folders) by detecting, classifying, and moving them into appropriate folders.
-
-## Phase 1 - CLI Script
-
-This is **Phase 1** of CleanifyAI: a command-line Python script that you can run manually from Terminal to organize files.
-
-### Current Status
-
-This is the **scaffolding phase**. The project structure is in place with placeholder functions, but the actual file scanning, classification, and moving logic will be implemented in subsequent prompts.
-
-### Project Structure
+## Project Structure
 
 ```
 cleanifyai/
-├── cleanify.py          # Main CLI entry point
+├── cleanify.py          # Main CLI entry point - starts the program
 ├── config/
-│   └── rules.json       # Rule configuration file
+│   └── rules.json       # Configuration file - defines how to identify screenshots
 ├── src/
-│   ├── scanner.py       # Directory scanning logic
-│   ├── classifier.py    # File classification logic
-│   ├── mover.py         # File moving logic
-│   └── utils.py         # Utility functions
-├── logs/                # Directory for log files
+│   ├── scanner.py       # Finds files on your Desktop
+│   ├── classifier.py    # Determines if a file is a screenshot
+│   ├── mover.py         # Moves files to the Screenshots folder
+│   └── utils.py         # Helper functions
 └── README.md            # This file
 ```
 
-### Usage (Once Implemented)
+## Usage
+
+**From the project root directory** (`cleanifyAi/`):
 
 ```bash
-# Organize files on Desktop
-python3 cleanify.py --path ~/Desktop
+# Navigate to the cleanifyai directory first
+cd cleanifyai
 
 # Dry run mode (see what would be done without moving files)
 python3 cleanify.py --path ~/Desktop --dry-run
+
+# Actually organize screenshots on Desktop
+python3 cleanify.py --path ~/Desktop
 
 # Organize a different folder
 python3 cleanify.py --path ~/Downloads
 ```
 
-### Features (Planned for Phase 1)
+**Or run from the project root without changing directories:**
 
-- Scan a directory for files
-- Classify files based on configurable rules
-- Move files to organized folders
-- Dry-run mode to preview changes
-- Detailed logging of operations
+```bash
+# From cleanifyAi/ directory
+python3 cleanifyai/cleanify.py --path ~/Desktop --dry-run
+python3 cleanifyai/cleanify.py --path ~/Desktop
+```
 
-### Configuration
+## Features (Phase 1)
 
-Rules are defined in `config/rules.json`. Each rule specifies:
-- **name**: Descriptive name for the rule
-- **match**: Matching criteria (contains, pattern, extension, etc.)
-- **destination**: Target folder path
+- ✅ Scans Desktop for files (top-level only)
+- ✅ Identifies screenshots based on filename and extension
+- ✅ Moves screenshots to `~/Desktop/Screenshots` folder
+- ✅ Dry-run mode to preview changes safely
+- ✅ Automatic conflict resolution (renames duplicates)
+- ✅ Automatically creates the Screenshots folder if it doesn't exist
 
-### Future Phases
+## Configuration
 
-- **Phase 1.5**: Background daemon mode with file watching
-- **Phase 2**: UI/Config tool for visual rule creation
-- **Phase 3**: Native macOS Swift/SwiftUI app
-- **Phase 4**: AI-powered classification using LLMs
+Screenshot detection rules are defined in `config/rules.json`. The default rule looks for:
+- Files with "screenshot" in the filename (case-insensitive)
+- Files with `.png`, `.jpg`, or `.jpeg` extensions
+- Moves matching files to the `Screenshots` folder
 
-### Requirements
+Example rule:
+```json
+{
+  "name": "Screenshots",
+  "match": {
+    "contains": ["screenshot"],
+    "extensions": [".png", ".jpg", ".jpeg"]
+  },
+  "destination": "Screenshots"
+}
+```
+
+## Requirements
 
 - Python 3.8+
-- macOS (for Phase 1; cross-platform support possible later)
+- macOS (tested on macOS, may work on other systems)
 
-### Development Status
+## Phase 1 Status
 
-- ✅ Project structure and scaffolding
-- ⏳ File scanning implementation (Prompt #2)
-- ⏳ Classification logic (Prompt #2)
-- ⏳ File moving and dry-run (Prompt #3)
-- ⏳ Logging and error handling (Prompt #3)
+✅ **Complete** - Screenshot organizer is fully functional
 
+This phase focuses solely on organizing screenshots. Future phases will add:
+- Support for organizing other file types
+- Background monitoring (automatic organization)
+- GUI interface
+- AI-powered classification
+
+## Example Output
+
+```
+[CleanifyAI] Running in DRY RUN mode.
+[CleanifyAI] Scanning folder: /Users/josephhudak/Desktop
+
+[CleanifyAI] Loaded 5 rule(s) from config.
+
+[CleanifyAI] Found 7 file(s).
+
+[DRY RUN] Would move: Screenshot 2025-11-20 at 7.27.34 PM.png → Screenshots/
+[DRY RUN] Would move: Screenshot 2025-11-20 at 7.27.40 PM.png → Screenshots/
+[SKIP] document.pdf (no matching rule)
+
+[CleanifyAI] Summary: 2 classified, 5 skipped
+[CleanifyAI] Dry-run complete. No files were moved.
+```

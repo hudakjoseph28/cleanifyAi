@@ -1,12 +1,12 @@
 """
-Utility Module (Phase 1)
+Utility Module - Phase 1
 
-Contains minimal helper functions used across CleanifyAI during Phase 1.
+Helper functions used throughout the program.
+These are small, reusable functions that don't fit into the main modules.
 
-Important:
-- This module intentionally includes only path normalization and 
-  system-file detection.
-- Logging utilities and file-size formatting will be added in Phase 3.
+WHAT IT DOES:
+- Checks if a file is a system file (should be ignored)
+- Normalizes file paths
 """
 
 import os
@@ -15,60 +15,63 @@ from pathlib import Path
 
 def normalize_path(path: str) -> Path:
     """
-    Normalize a path string to a Path object.
+    Convert a path string to a normalized Path object.
     
     This function:
-    - Expands `~` to user home directory
-    - Converts the string to a Path object
-    - Uses `.resolve()` to canonicalize the path (resolve symlinks, make absolute)
-    - Does NOT check if the path exists (that is the CLI's responsibility)
+    - Expands ~ to the user's home directory
+    - Converts to a Path object
+    - Resolves to an absolute path
+    
+    Example:
+        Input: "~/Desktop"
+        Output: Path("/Users/josephhudak/Desktop")
     
     Args:
-        path: Path string (may include ~ for home directory)
+        path: A path string (may include ~)
         
     Returns:
-        Normalized Path object (absolute, resolved)
+        A normalized Path object
     """
-    # Expand ~ to user home directory
-    expanded = os.path.expanduser(path)
+    # Expand ~ to home directory
+    expanded = os.expanduser(path)
     # Convert to Path and resolve to absolute path
     return Path(expanded).resolve()
 
 
 def is_system_file(file_path: Path) -> bool:
     """
-    Check if a file is a system file that should be ignored during scanning.
+    Check if a file is a system file that should be ignored.
     
-    This function identifies:
-    - Hidden files: Files whose name starts with '.' (e.g., .gitignore, .hidden)
-    - macOS system metadata files:
-      * .DS_Store
-      * .AppleDouble
-      * .LSOverride
-    - Windows system metadata files:
-      * Thumbs.db
-      * desktop.ini
+    System files are files that the operating system uses internally.
+    We don't want to organize these files, so we skip them.
+    
+    Examples of system files:
+    - Hidden files (starting with '.', like .gitignore, .DS_Store)
+    - macOS metadata files (.DS_Store, .AppleDouble)
+    - Windows metadata files (Thumbs.db, desktop.ini)
     
     Args:
-        file_path: Path object of the file to check
+        file_path: The file to check
         
     Returns:
-        True if file is a system file and should be ignored, False otherwise
+        True if it's a system file (should be skipped), False otherwise
     """
     filename = file_path.name
     
-    # Check for hidden files (starting with '.')
+    # Check for hidden files (names starting with '.')
+    # These are typically system or configuration files
     if filename.startswith('.'):
         return True
     
-    # macOS system files
+    # macOS system files that should be ignored
     macos_system_files = {'.DS_Store', '.AppleDouble', '.LSOverride'}
     if filename in macos_system_files:
         return True
     
-    # Windows system files
+    # Windows system files that should be ignored
     windows_system_files = {'Thumbs.db', 'desktop.ini'}
     if filename in windows_system_files:
         return True
     
+    # Not a system file, so we should process it
     return False
