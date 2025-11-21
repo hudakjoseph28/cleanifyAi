@@ -47,7 +47,7 @@ def parse_arguments():
     parser.add_argument(
         "--path",
         type=str,
-        default=os.expanduser("~/Desktop"),
+        default=str(Path.home() / "Desktop"),
         help="Path to the directory to scan and organize (default: ~/Desktop)"
     )
     
