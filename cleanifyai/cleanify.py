@@ -11,12 +11,16 @@ HOW IT WORKS:
 3. It finds screenshots (files with "screenshot" in the name and .png/.jpg extensions)
 4. It moves them into ~/Desktop/Screenshots folder
 5. It handles conflicts by renaming duplicates (e.g., Screenshot(1).png)
+
+CONTRACTS:
+All functions use strict type hints. Main entry point uses argparse for CLI arguments.
 """
 
 import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Add the src directory to Python's path so we can import our modules
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -27,16 +31,35 @@ from scanner import scan_directory
 from mover import move_file, resolve_destination
 
 
-def parse_arguments():
+def parse_arguments() -> argparse.Namespace:
     """
     Parse command-line arguments from the user.
     
-    This function sets up what arguments the script accepts:
-    - --path: Which folder to scan (defaults to ~/Desktop)
-    - --dry-run: Preview mode - shows what would happen without actually moving files
+    This function sets up the argument parser and defines what arguments the script accepts.
+    It uses argparse to handle command-line interface with proper help messages and
+    type validation.
+    
+    Supported Arguments:
+        --path: Path to the directory to scan and organize. Defaults to ~/Desktop.
+            Can be any valid directory path (absolute or relative).
+        --dry-run: Preview mode flag. When set, shows what would happen without
+            actually moving any files. Useful for testing and verification.
+    
+    Examples:
+        >>> args = parse_arguments()  # Called automatically by argparse
+        >>> # Command line: python3 cleanify.py --path ~/Desktop --dry-run
+        >>> # args.path = "~/Desktop"
+        >>> # args.dry_run = True
     
     Returns:
-        An object containing the parsed arguments
+        argparse.Namespace: An object containing the parsed arguments with attributes:
+            - path: str - Directory path to scan (default: ~/Desktop)
+            - dry_run: bool - Whether to run in preview mode (default: False)
+        
+    Note:
+        - Uses argparse.ArgumentParser for robust argument parsing
+        - Provides automatic help message generation (--help)
+        - Validates argument types and provides helpful error messages
     """
     parser = argparse.ArgumentParser(
         description="CleanifyAI Phase 1 - Organize screenshots on your Desktop",
@@ -61,20 +84,47 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     """
-    Main function - this is where the program starts.
+    Main entry point for the CleanifyAI CLI application.
     
-    STEP-BY-STEP PROCESS:
-    1. Get command-line arguments (which folder to scan, dry-run mode?)
-    2. Check that the folder exists and is valid
-    3. Load the rules from rules.json (tells us how to identify screenshots)
-    4. Scan the folder to find all files
-    5. For each file:
-       - Check if it matches our screenshot rules
-       - If yes: move it to Screenshots folder
-       - If no: skip it
-    6. Print a summary of what happened
+    This function orchestrates the entire file organization process:
+    1. Parses command-line arguments (directory path, dry-run mode)
+    2. Validates that the target directory exists and is accessible
+    3. Loads classification rules from config/rules.json
+    4. Scans the directory for files (top-level only)
+    5. Classifies each file using the loaded rules
+    6. Moves matching files to their destination folders (or previews in dry-run)
+    7. Prints a summary of operations performed
+    
+    The function handles errors gracefully and provides informative output at each step.
+    In dry-run mode, it only shows what would happen without actually moving files.
+    
+    Examples:
+        Run in dry-run mode to preview changes:
+        $ python3 cleanify.py --path ~/Desktop --dry-run
+        
+        Actually organize files:
+        $ python3 cleanify.py --path ~/Desktop
+        
+        Organize a different directory:
+        $ python3 cleanify.py --path ~/Downloads
+    
+    Returns:
+        None: This function doesn't return a value. It exits the program with:
+            - Exit code 0: Success
+            - Exit code 1: Error (invalid path, permission denied, etc.)
+        
+    Raises:
+        SystemExit: Exits with code 1 if the target directory is invalid or inaccessible.
+            All other errors are handled gracefully with error messages.
+        
+    Note:
+        - Uses the rules.json configuration file for classification rules
+        - Only processes top-level files (doesn't scan subdirectories)
+        - Automatically creates destination folders if they don't exist
+        - Handles filename conflicts by auto-renaming (e.g., Screenshot(1).png)
+        - Provides detailed console output for all operations
     """
     # Step 1: Parse command-line arguments
     args = parse_arguments()

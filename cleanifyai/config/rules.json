@@ -3,39 +3,72 @@
         {
             "name": "Screenshots",
             "match": {
-                "contains": ["screenshot"],
-                "extensions": [".png", ".jpg", ".jpeg"]
+                "contains": [
+                    "screenshot"
+                ],
+                "extensions": [
+                    ".png",
+                    ".jpg",
+                    ".jpeg"
+                ]
             },
             "destination": "Screenshots"
         },
         {
             "name": "Software2 Homework",
             "match": {
-                "contains": ["software2", "hw"],
-                "extensions": [".pdf", ".docx", ".doc"]
+                "contains": [
+                    "software2",
+                    "hw"
+                ],
+                "extensions": [
+                    ".pdf",
+                    ".docx",
+                    ".doc"
+                ]
             },
             "destination": "School/Software2/Homework"
         },
         {
             "name": "Java Code",
             "match": {
-                "extensions": [".java"]
+                "extensions": [
+                    ".java"
+                ]
             },
             "destination": "Code"
         },
         {
             "name": "PDF Documents",
             "match": {
-                "extensions": [".pdf"]
+                "extensions": [
+                    ".pdf"
+                ]
             },
             "destination": "Docs/PDFs"
         },
         {
             "name": "Images",
             "match": {
-                "extensions": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg"]
+                "extensions": [
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".gif",
+                    ".bmp",
+                    ".svg"
+                ]
             },
             "destination": "Images"
+        },
+        {
+            "name": "Simulator",
+            "match": {
+                "contains": [
+                    "simulator"
+                ]
+            },
+            "destination": "Simulator"
         }
     ]
 }

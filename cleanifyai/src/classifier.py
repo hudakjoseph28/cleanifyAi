@@ -13,48 +13,72 @@ EXAMPLE:
     File: "Screenshot 2025-01-15.png"
     Rule: "If filename contains 'screenshot' and extension is .png, move to Screenshots"
     Result: Returns "Screenshots"
+
+CONTRACTS:
+All functions use strict type hints. Rules are Dict[str, Any] with 'name', 'match', 'destination' keys.
 """
 
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, Union
 
 from mover import resolve_destination
 
 
-def load_rules(config_path: str) -> List[Dict]:
+def load_rules(config_path: Union[str, Path]) -> List[Dict[str, Any]]:
     """
-    Load classification rules from the rules.json file.
+    Load classification rules from a JSON configuration file.
     
     The rules.json file contains instructions on how to identify different types of files.
-    For Phase 1, we mainly care about the screenshot rule.
+    Each rule specifies matching criteria (filename patterns, extensions) and a destination
+    folder. Rules are validated to ensure they have the required structure.
     
-    Example rule structure:
-    {
-        "name": "Screenshots",
-        "match": {
-            "contains": ["screenshot"],
-            "extensions": [".png", ".jpg"]
-        },
-        "destination": "Screenshots"
-    }
+    Rule Structure:
+        {
+            "name": "Screenshots",              # Descriptive name for the rule
+            "match": {                          # Matching criteria (all must match)
+                "contains": ["screenshot"],     # Filename must contain these strings
+                "extensions": [".png", ".jpg"]  # File must have one of these extensions
+            },
+            "destination": "Screenshots"        # Destination folder (relative to base)
+        }
     
-    This rule says: "If a filename contains 'screenshot' AND has a .png or .jpg extension,
-                     move it to the Screenshots folder"
+    Examples:
+        >>> rules = load_rules("config/rules.json")
+        >>> # Returns: [{"name": "Screenshots", "match": {...}, "destination": "Screenshots"}, ...]
+        
+        >>> rules = load_rules(Path("config/rules.json"))
+        >>> # Returns: List of rule dictionaries
     
     Args:
-        config_path: Path to the rules.json file
+        config_path: Path to the rules.json file. Can be a string or Path object.
+            The file should contain a JSON object with a "rules" array.
+            Example: "config/rules.json" or Path("config/rules.json")
         
     Returns:
-        A list of rule dictionaries
+        List[Dict[str, Any]]: A list of rule dictionaries. Each rule has:
+            - 'name': str - Rule name
+            - 'match': Dict - Matching criteria (contains, extensions, pattern)
+            - 'destination': str - Destination folder path
+            Returns an empty list if the file doesn't exist or has no rules.
         
     Raises:
-        ValueError: If the rules file is invalid
+        ValueError: If the JSON file is invalid, malformed, or rules are missing
+            required fields. The error message includes details about which rule
+            is invalid and what field is missing.
+        
+    Note:
+        - Validates that each rule has 'name', 'match', and 'destination' fields
+        - Validates that 'match' is a dictionary with at least one criterion
+        - Returns empty list if file doesn't exist (doesn't raise an error)
     """
+    # Convert to string if it's a Path object
+    config_path_str = str(config_path)
+    
     try:
         # Open and read the JSON file
-        with open(config_path, 'r') as f:
+        with open(config_path_str, 'r', encoding='utf-8') as f:
             config = json.load(f)
     except FileNotFoundError:
         # If file doesn't exist, return empty list (no rules)
@@ -94,30 +118,56 @@ def load_rules(config_path: str) -> List[Dict]:
     return rules
 
 
-def match_rule(file_path: Path, rule: Dict) -> bool:
+def match_rule(file_path: Union[Path, str], rule: Dict[str, Any]) -> bool:
     """
     Check if a file matches a specific rule's criteria.
     
-    This function checks if a file meets all the requirements of a rule.
-    Rules can check:
-    - contains: Filename contains certain text (e.g., "screenshot")
-    - extensions: File has certain extension (e.g., ".png")
-    - pattern: Filename matches a regex pattern
+    This function checks if a file meets all the requirements of a rule. Rules can
+    specify multiple matching criteria, and ALL criteria must match for the rule
+    to match (AND logic). Matching is case-insensitive for contains and extensions.
     
-    Multiple criteria are combined with AND logic (all must match).
+    Supported Match Criteria:
+        - contains: List of strings that must appear in the filename
+            Example: ["screenshot", "screen"] matches "Screenshot 2025.png"
+        - extensions: List of file extensions (with or without leading dot)
+            Example: [".png", ".jpg"] matches files with .png or .jpg extension
+        - pattern: Regular expression pattern that the filename must match
+            Example: r"screenshot.*\.png" matches "screenshot-2025.png"
     
-    Example:
-        File: "Screenshot 2025-01-15.png"
-        Rule: {"contains": ["screenshot"], "extensions": [".png"]}
-        Result: True (filename contains "screenshot" AND has .png extension)
+    Examples:
+        >>> from pathlib import Path
+        >>> file = Path("Screenshot 2025-01-15.png")
+        >>> rule = {"match": {"contains": ["screenshot"], "extensions": [".png"]}}
+        >>> match_rule(file, rule)
+        True  # Matches: contains "screenshot" AND has .png extension
+        
+        >>> file = Path("document.pdf")
+        >>> rule = {"match": {"contains": ["screenshot"]}}
+        >>> match_rule(file, rule)
+        False  # Doesn't contain "screenshot"
     
     Args:
-        file_path: The file to check
-        rule: The rule to match against
+        file_path: The file to check. Can be a Path object or string.
+            Only the filename is checked, not the full path.
+            Example: Path("Screenshot.png") or "Screenshot.png"
+        rule: The rule dictionary to match against. Must have a 'match' key
+            containing the matching criteria.
+            Example: {"match": {"contains": ["screenshot"], "extensions": [".png"]}}
         
     Returns:
-        True if the file matches the rule, False otherwise
+        bool: True if the file matches ALL criteria in the rule,
+            False if any criterion doesn't match or if no criteria are specified.
+        
+    Note:
+        - Matching is case-insensitive for 'contains' and 'extensions'
+        - All criteria must match (AND logic, not OR)
+        - Invalid regex patterns in 'pattern' are caught and treated as non-matching
+        - Returns False if no criteria are checked (empty match dictionary)
     """
+    # Convert to Path object if it's a string
+    if not isinstance(file_path, Path):
+        file_path = Path(str(file_path))
+    
     match = rule.get('match', {})
     
     # Convert to lowercase for case-insensitive matching
@@ -184,31 +234,74 @@ def match_rule(file_path: Path, rule: Dict) -> bool:
     return all_criteria_match
 
 
-def classify_file(file_path: Path, rules: List[Dict], base_path: Path) -> Optional[str]:
+def classify_file(
+    file_path: Union[Path, str],
+    rules: List[Dict[str, Any]],
+    base_path: Union[Path, str]
+) -> Optional[str]:
     """
-    Determine which rule applies to a file and return its destination folder.
+    Classify a file and return its destination folder based on matching rules.
     
-    This is the main classification function. It:
-    1. Goes through each rule in order
-    2. Checks if the file matches that rule
+    This is the main classification function. It iterates through rules in order
+    and returns the destination for the first matching rule. Rules are checked
+    sequentially, so the first match wins (priority-based matching).
+    
+    The function:
+    1. Iterates through rules in the order they appear in the list
+    2. Checks if the file matches each rule using match_rule()
     3. Returns the destination folder for the first matching rule
     4. Returns None if no rules match
     
-    Rules are checked in order, so the first match wins (priority-based).
-    
-    Example:
-        File: "Screenshot 2025-01-15.png"
-        Rules: [Screenshot rule, PDF rule, ...]
-        Result: "Screenshots" (because it matched the first rule)
+    Examples:
+        >>> from pathlib import Path
+        >>> file = Path("Screenshot 2025-01-15.png")
+        >>> rules = [
+        ...     {"name": "Screenshots", "match": {"contains": ["screenshot"]}, "destination": "Screenshots"},
+        ...     {"name": "PDFs", "match": {"extensions": [".pdf"]}, "destination": "Documents"}
+        ... ]
+        >>> base = Path("~/Desktop")
+        >>> classify_file(file, rules, base)
+        "Screenshots"  # Matched first rule
+        
+        >>> file = Path("document.pdf")
+        >>> classify_file(file, rules, base)
+        "Documents"  # Matched second rule
+        
+        >>> file = Path("random.txt")
+        >>> classify_file(file, rules, base)
+        None  # No rules matched
     
     Args:
-        file_path: The file to classify
-        rules: List of rules from load_rules()
-        base_path: Base directory (e.g., ~/Desktop) for resolving relative paths
+        file_path: The file to classify. Can be a Path object or string.
+            Example: Path("Screenshot.png") or "Screenshot.png"
+        rules: List of rule dictionaries from load_rules(). Rules are checked
+            in order, so put more specific rules first.
+            Example: [{"name": "Screenshots", "match": {...}, "destination": "Screenshots"}, ...]
+        base_path: Base directory path for resolving relative destination paths.
+            Can be a Path object or string. Used to resolve the full destination path.
+            Example: Path("~/Desktop") or "~/Desktop"
         
     Returns:
-        Destination folder name (e.g., "Screenshots") if a rule matches, None otherwise
+        Optional[str]: The destination folder path (relative to base_path) if a rule
+            matches, None if no rules match. The returned path is relative to base_path
+            for display purposes.
+            Example: "Screenshots" or "Documents/PDFs" or None
+        
+    Note:
+        - Rules are checked in order (first match wins)
+        - Returns relative path, not absolute path
+        - Returns None if no rules match (file will be skipped)
+        - Destination paths are resolved relative to base_path
     """
+    # Convert to Path objects
+    if not isinstance(file_path, Path):
+        file_path = Path(str(file_path))
+    if not isinstance(base_path, Path):
+        base_path = Path(str(base_path))
+    
+    # Resolve base_path to absolute path
+    base_path_resolved = base_path.resolve()
+    
     # Go through each rule in order (first match wins)
     for rule in rules:
         # Check if this file matches the rule
@@ -217,10 +310,14 @@ def classify_file(file_path: Path, rules: List[Dict], base_path: Path) -> Option
             destination = rule['destination']
             
             # Resolve the full path (e.g., "Screenshots" -> "/Users/josephhudak/Desktop/Screenshots")
-            resolved_dest = resolve_destination(base_path, destination)
+            resolved_dest = resolve_destination(base_path_resolved, destination)
             
             # Return just the relative path for display purposes
-            return str(resolved_dest.relative_to(base_path.resolve()))
+            try:
+                return str(resolved_dest.relative_to(base_path_resolved))
+            except ValueError:
+                # If paths are on different drives (Windows), return the destination as-is
+                return destination
     
     # No rules matched, so we don't know where this file should go
     return None
